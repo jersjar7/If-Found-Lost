@@ -9,7 +9,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.jersondevs.iffoundlost</string>
+	<string>com.jersondevs.ifFoundLost</string>
 	<key>PROJECT_ID</key>
 	<string>if-found-lost-4f67e</string>
 	<key>STORAGE_BUCKET</key>
@@ -25,6 +25,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:1027594786090:ios:1f4392e871402361effa53</string>
+	<string>1:1027594786090:ios:00b7ccc6e29d3936effa53</string>
 </dict>
 </plist>
