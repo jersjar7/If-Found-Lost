@@ -1,10 +1,32 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+// Core
+import 'package:if_found_lost/core/config/firebase_config.dart';
+
+// Domain
+import 'package:if_found_lost/domain/usecases/auth_usecases.dart';
+import 'package:if_found_lost/domain/usecases/user_usecases.dart';
+import 'package:if_found_lost/domain/usecases/qr_code_usecases.dart';
+
+// Data
+import 'package:if_found_lost/data/datasources/remote/auth_remote_datasource.dart';
+import 'package:if_found_lost/data/datasources/remote/user_remote_datasource.dart';
+import 'package:if_found_lost/data/datasources/remote/qr_code_remote_datasource.dart';
+import 'package:if_found_lost/data/repositories/auth_repository_impl.dart';
+import 'package:if_found_lost/data/repositories/user_repository_impl.dart';
+import 'package:if_found_lost/data/repositories/qr_code_repository_impl.dart';
+
+// Presentation
+import 'package:if_found_lost/presentation/bloc/auth/auth_bloc.dart';
+import 'package:if_found_lost/presentation/bloc/user/user_bloc.dart';
+import 'package:if_found_lost/presentation/bloc/qr_code/qr_code_bloc.dart';
+import 'package:if_found_lost/presentation/pages/home/home_page.dart';
+import 'package:if_found_lost/presentation/pages/auth/auth_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
+  await FirebaseConfig.initialize();
   runApp(const MyApp());
 }
 
@@ -13,144 +35,129 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'If Found Lost',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.blue,
-          foregroundColor: Colors.white,
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider<AuthBloc>(
+          create:
+              (context) => AuthBloc(
+                getAuthStateUseCase: GetAuthStateUseCase(
+                  AuthRepositoryImpl(
+                    remoteDataSource: FirebaseAuthDatasource(),
+                  ),
+                ),
+                getCurrentUserUseCase: GetCurrentUserUseCase(
+                  AuthRepositoryImpl(
+                    remoteDataSource: FirebaseAuthDatasource(),
+                  ),
+                ),
+                signInUseCase: SignInUseCase(
+                  AuthRepositoryImpl(
+                    remoteDataSource: FirebaseAuthDatasource(),
+                  ),
+                ),
+                signUpUseCase: SignUpUseCase(
+                  AuthRepositoryImpl(
+                    remoteDataSource: FirebaseAuthDatasource(),
+                  ),
+                ),
+                signOutUseCase: SignOutUseCase(
+                  AuthRepositoryImpl(
+                    remoteDataSource: FirebaseAuthDatasource(),
+                  ),
+                ),
+              )..add(CheckAuthStatusEvent()),
         ),
-      ),
-      home: StreamBuilder<User?>(
-        stream: FirebaseAuth.instance.authStateChanges(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasData) {
-            return const HomePage();
-          }
-          return const AuthPage();
-        },
-      ),
-    );
-  }
-}
-
-class AuthPage extends StatefulWidget {
-  const AuthPage({super.key});
-
-  @override
-  _AuthPageState createState() => _AuthPageState();
-}
-
-class _AuthPageState extends State<AuthPage> {
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  bool _isLogin = true;
-  bool _isLoading = false;
-
-  Future<void> _authenticate() async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      if (_isLogin) {
-        await FirebaseAuth.instance.signInWithEmailAndPassword(
-          email: _emailController.text.trim(),
-          password: _passwordController.text.trim(),
-        );
-      } else {
-        await FirebaseAuth.instance.createUserWithEmailAndPassword(
-          email: _emailController.text.trim(),
-          password: _passwordController.text.trim(),
-        );
-      }
-    } on FirebaseAuthException catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message ?? 'Authentication failed')),
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
-  }
-
-  @override
-  void dispose() {
-    _emailController.dispose();
-    _passwordController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(_isLogin ? 'Login' : 'Sign Up')),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            TextField(
-              controller: _emailController,
-              decoration: const InputDecoration(labelText: 'Email'),
-              keyboardType: TextInputType.emailAddress,
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _passwordController,
-              decoration: const InputDecoration(labelText: 'Password'),
-              obscureText: true,
-            ),
-            const SizedBox(height: 24),
-            if (_isLoading)
-              const CircularProgressIndicator()
-            else
-              ElevatedButton(
-                onPressed: _authenticate,
-                child: Text(_isLogin ? 'Login' : 'Sign Up'),
+        BlocProvider<UserBloc>(
+          create:
+              (context) => UserBloc(
+                getUserProfileUseCase: GetUserProfileUseCase(
+                  UserRepositoryImpl(
+                    remoteDatasource: FirebaseUserDatasource(),
+                  ),
+                ),
+                createUserProfileUseCase: CreateUserProfileUseCase(
+                  UserRepositoryImpl(
+                    remoteDatasource: FirebaseUserDatasource(),
+                  ),
+                ),
+                updateUserProfileUseCase: UpdateUserProfileUseCase(
+                  UserRepositoryImpl(
+                    remoteDatasource: FirebaseUserDatasource(),
+                  ),
+                ),
               ),
-            TextButton(
-              onPressed: () {
-                setState(() {
-                  _isLogin = !_isLogin;
-                });
-              },
-              child: Text(
-                _isLogin
-                    ? 'Create an account'
-                    : 'Already have an account? Login',
-              ),
-            ),
-          ],
         ),
-      ),
-    );
-  }
-}
-
-class HomePage extends StatelessWidget {
-  const HomePage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('If Found Lost'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () => FirebaseAuth.instance.signOut(),
+        BlocProvider<QRCodeBloc>(
+          create:
+              (context) => QRCodeBloc(
+                getUserQRCodesUseCase: GetUserQRCodesUseCase(
+                  QRCodeRepositoryImpl(
+                    remoteDatasource: FirebaseQRCodeDatasource(),
+                    baseUrl: 'https://iffoundlost.app/scan/',
+                  ),
+                ),
+                getQRCodeByIdUseCase: GetQRCodeByIdUseCase(
+                  QRCodeRepositoryImpl(
+                    remoteDatasource: FirebaseQRCodeDatasource(),
+                    baseUrl: 'https://iffoundlost.app/scan/',
+                  ),
+                ),
+                createQRCodeUseCase: CreateQRCodeUseCase(
+                  QRCodeRepositoryImpl(
+                    remoteDatasource: FirebaseQRCodeDatasource(),
+                    baseUrl: 'https://iffoundlost.app/scan/',
+                  ),
+                ),
+                updateQRCodeUseCase: UpdateQRCodeUseCase(
+                  QRCodeRepositoryImpl(
+                    remoteDatasource: FirebaseQRCodeDatasource(),
+                    baseUrl: 'https://iffoundlost.app/scan/',
+                  ),
+                ),
+                deleteQRCodeUseCase: DeleteQRCodeUseCase(
+                  QRCodeRepositoryImpl(
+                    remoteDatasource: FirebaseQRCodeDatasource(),
+                    baseUrl: 'https://iffoundlost.app/scan/',
+                  ),
+                ),
+                generateQRCodeContentUseCase: GenerateQRCodeContentUseCase(
+                  QRCodeRepositoryImpl(
+                    remoteDatasource: FirebaseQRCodeDatasource(),
+                    baseUrl: 'https://iffoundlost.app/scan/',
+                  ),
+                ),
+                getQRCodeScanHistoryUseCase: GetQRCodeScanHistoryUseCase(
+                  QRCodeRepositoryImpl(
+                    remoteDatasource: FirebaseQRCodeDatasource(),
+                    baseUrl: 'https://iffoundlost.app/scan/',
+                  ),
+                ),
+              ),
+        ),
+      ],
+      child: MaterialApp(
+        title: 'If Found Lost',
+        theme: ThemeData(
+          primarySwatch: Colors.blue,
+          appBarTheme: const AppBarTheme(
+            backgroundColor: Colors.blue,
+            foregroundColor: Colors.white,
           ),
-        ],
+        ),
+        home: BlocBuilder<AuthBloc, AuthState>(
+          builder: (context, state) {
+            if (state is AuthLoading) {
+              return const Scaffold(
+                body: Center(child: CircularProgressIndicator()),
+              );
+            } else if (state is Authenticated) {
+              return const HomePage();
+            } else {
+              return const AuthPage();
+            }
+          },
+        ),
       ),
-      body: const Center(child: Text('QR Code Sticker System')),
     );
   }
 }

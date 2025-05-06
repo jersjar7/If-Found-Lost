@@ -1,0 +1,55 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function to check if user owns the document
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Helper function to validate required fields
+    function hasRequiredFields(data, fields) {
+      return data.keys().hasAll(fields);
+    }
+    
+    // Users collection
+    match /users/{userId} {
+      // Allow users to read and update only their own profile
+      allow read, update, delete: if isOwner(userId);
+      
+      // Allow creation of user profile with validation
+      allow create: if isOwner(userId) && 
+                     hasRequiredFields(request.resource.data, ['email']);
+    }
+    
+    // QR Codes collection
+    match /qrCodes/{qrCodeId} {
+      // Allow authenticated users to read and update only their own QR codes
+      allow read, update, delete: if isAuthenticated() && 
+                                    resource.data.userId == request.auth.uid;
+      
+      // Allow creation of QR codes with validation
+      allow create: if isAuthenticated() && 
+                     request.resource.data.userId == request.auth.uid &&
+                     hasRequiredFields(request.resource.data, ['userId', 'createdAt', 'isActive']);
+    }
+    
+    // QR Code Scans collection
+    match /qrScans/{scanId} {
+      // Allow QR code owners to read scan history of their QR codes
+      allow read: if isAuthenticated() && 
+                   exists(/databases/$(database)/documents/qrCodes/$(resource.data.qrCodeId)) &&
+                   get(/databases/$(database)/documents/qrCodes/$(resource.data.qrCodeId)).data.userId == request.auth.uid;
+      
+      // Allow anyone to create scan records (public QR code scanning)
+      allow create: if hasRequiredFields(request.resource.data, ['qrCodeId', 'scannerIp', 'timestamp']);
+      
+      // Only admin can delete scan records
+      allow delete: if false;
+    }
+  }
+}
