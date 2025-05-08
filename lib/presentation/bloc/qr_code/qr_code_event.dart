@@ -29,6 +29,15 @@ class QRCodesUpdatedEvent extends QRCodeEvent {
   List<Object> get props => [qrCodes];
 }
 
+class QRCodeErrorEvent extends QRCodeEvent {
+  final String message;
+
+  const QRCodeErrorEvent({required this.message});
+
+  @override
+  List<Object> get props => [message];
+}
+
 class LoadQRCodeByIdEvent extends QRCodeEvent {
   final String qrCodeId;
 

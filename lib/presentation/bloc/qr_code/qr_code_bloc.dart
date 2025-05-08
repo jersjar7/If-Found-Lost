@@ -39,6 +39,7 @@ class QRCodeBloc extends Bloc<QRCodeEvent, QRCodeState> {
     on<DeleteQRCodeEvent>(_onDeleteQRCode);
     on<GenerateQRCodeContentEvent>(_onGenerateQRCodeContent);
     on<LoadQRCodeScanHistoryEvent>(_onLoadQRCodeScanHistory);
+    on<QRCodeErrorEvent>(_onQRCodeError);
   }
 
   Future<void> _onLoadUserQRCodes(
@@ -52,12 +53,19 @@ class QRCodeBloc extends Bloc<QRCodeEvent, QRCodeState> {
         .execute(event.userId)
         .listen(
           (qrCodes) => add(QRCodesUpdatedEvent(qrCodes: qrCodes)),
-          onError: (error) => emit(QRCodeError(message: error.toString())),
+          onError: (error) {
+            // Instead of emitting directly, add an event
+            add(QRCodeErrorEvent(message: error.toString()));
+          },
         );
   }
 
   void _onQRCodesUpdated(QRCodesUpdatedEvent event, Emitter<QRCodeState> emit) {
     emit(QRCodesLoaded(qrCodes: event.qrCodes));
+  }
+
+  void _onQRCodeError(QRCodeErrorEvent event, Emitter<QRCodeState> emit) {
+    emit(QRCodeError(message: event.message));
   }
 
   Future<void> _onLoadQRCodeById(
